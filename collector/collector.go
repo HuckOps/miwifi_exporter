@@ -1,18 +1,11 @@
 package collector
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
-	"io/ioutil"
-	"log"
-	"miwifi-exporter/config"
-	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 type Metrics struct {
@@ -36,10 +29,17 @@ func NewMetrics(namespace string) *Metrics {
 			"wan_downspeed":        newGlobalMetric(namespace, "wan_downspeed", "", []string{"host"}),
 			"wan_up":               newGlobalMetric(namespace, "wan_up", "", []string{"host"}),
 			"wan_down":             newGlobalMetric(namespace, "wan_down", "", []string{"host"}),
-			"dev_upload":           newGlobalMetric(namespace, "dev_upload", "", []string{"host"}),
-			"dev_upspeed":          newGlobalMetric(namespace, "dev_upspeed", "", []string{"host"}),
-			"dev_download":         newGlobalMetric(namespace, "dev_download", "", []string{"host"}),
-			"dev_downspeed":        newGlobalMetric(namespace, "dev_downspeed", "", []string{"host"}),
+			"dev_upload":           newGlobalMetric(namespace, "dev_upload", "", []string{"ip"}),
+			"dev_upspeed":          newGlobalMetric(namespace, "dev_upspeed", "", []string{"ip"}),
+			"dev_download":         newGlobalMetric(namespace, "dev_download", "", []string{"ip"}),
+			"dev_downspeed":        newGlobalMetric(namespace, "dev_downspeed", "", []string{"ip"}),
+			"platform":             newGlobalMetric(namespace, "platform", "", []string{"platform"}),
+			"version":              newGlobalMetric(namespace, "version", "", []string{"version"}),
+			"sn":                   newGlobalMetric(namespace, "sn", "", []string{"sn"}),
+			"mac":                  newGlobalMetric(namespace, "mac", "", []string{"mac"}),
+			"ipv4":                 newGlobalMetric(namespace, "ipv4", "", []string{"ipv4"}),
+			"ipv4_mask":            newGlobalMetric(namespace, "ipv4_mask", "", []string{"ipv4"}),
+			"ipv6":                 newGlobalMetric(namespace, "ipv6", "", []string{"ipv6"}),
 		},
 	}
 }
@@ -54,111 +54,57 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 	c.mutex.Lock() // 加锁
 	defer c.mutex.Unlock()
 	GetMiwifiStatus()
-	ch <- prometheus.MustNewConstMetric(c.metrics["memory_usage_percent"], prometheus.CounterValue, float64(status.Mem.Usage*100), "miwifi")
-	memory_total, _ := strconv.ParseFloat(strings.Split(status.Mem.Total, "MB")[0], 64)
-	ch <- prometheus.MustNewConstMetric(c.metrics["memory_usage"], prometheus.GaugeValue, float64(status.Mem.Usage*memory_total), "miwifi")
-	ch <- prometheus.MustNewConstMetric(c.metrics["count_all"], prometheus.GaugeValue, float64(status.Count.All), "miwifi")
-	ch <- prometheus.MustNewConstMetric(c.metrics["count_online"], prometheus.GaugeValue, float64(status.Count.Online), "miwifi")
-	ch <- prometheus.MustNewConstMetric(c.metrics["load_percent"], prometheus.GaugeValue, float64(status.CPU.Load*100), "miwifi")
-	upspeed, _ := strconv.ParseFloat(status.Wan.Upspeed, 64)
-	downspeed, _ := strconv.ParseFloat(status.Wan.Downspeed, 64)
-	up, _ := strconv.ParseFloat(status.Wan.Upload, 64)
-	down, _ := strconv.ParseFloat(status.Wan.Download, 64)
+	GetIPtoMAC()
+	GetWAN()
+	ch <- prometheus.MustNewConstMetric(c.metrics["memory_usage_percent"], prometheus.CounterValue, float64(DevStatus.Mem.Usage*100), "miwifi")
+	memory_total, _ := strconv.ParseFloat(strings.Split(DevStatus.Mem.Total, "MB")[0], 64)
+	ch <- prometheus.MustNewConstMetric(c.metrics["memory_usage"], prometheus.GaugeValue, float64(DevStatus.Mem.Usage*memory_total), "miwifi")
+	ch <- prometheus.MustNewConstMetric(c.metrics["count_all"], prometheus.GaugeValue, float64(DevStatus.Count.All), "miwifi")
+	ch <- prometheus.MustNewConstMetric(c.metrics["count_online"], prometheus.GaugeValue, float64(DevStatus.Count.Online), "miwifi")
+	ch <- prometheus.MustNewConstMetric(c.metrics["load_percent"], prometheus.GaugeValue, float64(DevStatus.CPU.Load*100), "miwifi")
+	upspeed, _ := strconv.ParseFloat(DevStatus.Wan.Upspeed, 64)
+	downspeed, _ := strconv.ParseFloat(DevStatus.Wan.Downspeed, 64)
+	up, _ := strconv.ParseFloat(DevStatus.Wan.Upload, 64)
+	down, _ := strconv.ParseFloat(DevStatus.Wan.Download, 64)
 	ch <- prometheus.MustNewConstMetric(c.metrics["wan_upspeed"], prometheus.GaugeValue, upspeed, "miwifi")
 	ch <- prometheus.MustNewConstMetric(c.metrics["wan_downspeed"], prometheus.GaugeValue, downspeed, "miwifi")
 	ch <- prometheus.MustNewConstMetric(c.metrics["wan_up"], prometheus.GaugeValue, up, "miwifi")
 	ch <- prometheus.MustNewConstMetric(c.metrics["wan_down"], prometheus.GaugeValue, down, "miwifi")
+	ch <- prometheus.MustNewConstMetric(c.metrics["platform"], prometheus.GaugeValue, 1, DevStatus.Hardware.Platform)
+	ch <- prometheus.MustNewConstMetric(c.metrics["version"], prometheus.GaugeValue, 1, DevStatus.Hardware.Version)
+	ch <- prometheus.MustNewConstMetric(c.metrics["sn"], prometheus.GaugeValue, 1, DevStatus.Hardware.Sn)
+	ch <- prometheus.MustNewConstMetric(c.metrics["mac"], prometheus.GaugeValue, 1, DevStatus.Hardware.Mac)
 	count := 0
-	for _, dev := range status.Dev {
+
+	for _, ipv4 := range WANInfo.Info.Ipv4 {
+		ch <- prometheus.MustNewConstMetric(c.metrics["ipv4"], prometheus.GaugeValue, 1, ipv4.IP)
+		mask, _ := SubNetMaskToLen(ipv4.Mask)
+		ch <- prometheus.MustNewConstMetric(c.metrics["ipv4_mask"], prometheus.GaugeValue, float64(mask), ipv4.IP)
+	}
+	for _, ipv6 := range WANInfo.Info.Ipv6Info.IP6Addr {
+		ch <- prometheus.MustNewConstMetric(c.metrics["ipv6"], prometheus.GaugeValue, 1, ipv6)
+	}
+
+	for _, dev := range DevStatus.Dev {
 		upload, _ := strconv.ParseFloat(dev.Upload, 64)
 		download, _ := strconv.ParseFloat(dev.Download, 64)
 		devupspeed, _ := strconv.ParseFloat(dev.Upspeed, 64)
 		devdownspeed, _ := strconv.ParseFloat(dev.Downspeed, 64)
-		var Devname string
-		if dev.Devname == "Unknown" {
-			Devname = dev.Devname + strconv.Itoa(count)
-			count = count + 1
-		} else {
-			Devname = dev.Devname
+		var ip string
+		for _, d := range Mactoip.List {
+			if d.Mac == dev.Mac {
+				ip = d.IP[0].IP
+				break
+			}
 		}
-		ch <- prometheus.MustNewConstMetric(c.metrics["dev_upload"], prometheus.GaugeValue, upload, Devname)
-		ch <- prometheus.MustNewConstMetric(c.metrics["dev_download"], prometheus.GaugeValue, download, Devname)
-		ch <- prometheus.MustNewConstMetric(c.metrics["dev_upspeed"], prometheus.GaugeValue, devupspeed, Devname)
-		ch <- prometheus.MustNewConstMetric(c.metrics["dev_downspeed"], prometheus.GaugeValue, devdownspeed, Devname)
-	}
-}
 
-type Status struct {
-	Dev []struct {
-		Mac              string `json:"mac"`
-		Maxdownloadspeed string `json:"maxdownloadspeed"`
-		Upload           string `json:"upload"`
-		Upspeed          string `json:"upspeed"`
-		Downspeed        string `json:"downspeed"`
-		Online           string `json:"online"`
-		Devname          string `json:"devname"`
-		Maxuploadspeed   string `json:"maxuploadspeed"`
-		Download         string `json:"download"`
-	} `json:"dev"`
-	Code int `json:"code"`
-	Mem  struct {
-		Usage float64 `json:"usage"`
-		Total string  `json:"total"`
-		Hz    string  `json:"hz"`
-		Type  string  `json:"type"`
-	} `json:"mem"`
-	Temperature int `json:"temperature"`
-	Count       struct {
-		All    int `json:"all"`
-		Online int `json:"online"`
-	} `json:"count"`
-	Hardware struct {
-		Mac      string `json:"mac"`
-		Platform string `json:"platform"`
-		Version  string `json:"version"`
-		Channel  string `json:"channel"`
-		Sn       string `json:"sn"`
-	} `json:"hardware"`
-	UpTime string `json:"upTime"`
-	CPU    struct {
-		Core int     `json:"core"`
-		Hz   string  `json:"hz"`
-		Load float64 `json:"load"`
-	} `json:"cpu"`
-	Wan struct {
-		Downspeed        string `json:"downspeed"`
-		Maxdownloadspeed string `json:"maxdownloadspeed"`
-		History          string `json:"history"`
-		Devname          string `json:"devname"`
-		Upload           string `json:"upload"`
-		Upspeed          string `json:"upspeed"`
-		Maxuploadspeed   string `json:"maxuploadspeed"`
-		Download         string `json:"download"`
-	} `json:"wan"`
-}
-
-var status Status
-
-func GetMiwifiStatus() {
-	client := http.Client{}
-	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/misystem/status",
-		config.Config.IP, config.Token.Token))
-
-	if err != nil {
-		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机")
-		os.Exit(1)
-	}
-	body, err := ioutil.ReadAll(res.Body)
-	count := 0
-	if err = json.Unmarshal([]byte(body), &status); err != nil {
-		log.Println("Token失效，正在重试获取")
-		config.GetConfig()
-		GetMiwifiStatus()
-		count++
-		time.Sleep(1 * time.Minute)
-		if count >= 5 {
-			log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误")
-			os.Exit(1)
+		if ip == "" {
+			ip = fmt.Sprintf("未知设备%d", count)
+			count++
 		}
+		ch <- prometheus.MustNewConstMetric(c.metrics["dev_upload"], prometheus.GaugeValue, upload, ip)
+		ch <- prometheus.MustNewConstMetric(c.metrics["dev_download"], prometheus.GaugeValue, download, ip)
+		ch <- prometheus.MustNewConstMetric(c.metrics["dev_upspeed"], prometheus.GaugeValue, devupspeed, ip)
+		ch <- prometheus.MustNewConstMetric(c.metrics["dev_downspeed"], prometheus.GaugeValue, devdownspeed, ip)
 	}
 }
