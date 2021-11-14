@@ -86,10 +86,15 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	for _, dev := range DevStatus.Dev {
-		upload, _ := strconv.ParseFloat(dev.Upload, 64)
-		download, _ := strconv.ParseFloat(dev.Download, 64)
-		devupspeed, _ := strconv.ParseFloat(dev.Upspeed, 64)
-		devdownspeed, _ := strconv.ParseFloat(dev.Downspeed, 64)
+		defer func() {
+			if err := recover(); err != nil {
+				fmt.Println("存在不正常数据，请检查API")
+			}
+		}()
+		upload, _ := strconv.ParseFloat(dev.Upload.(string), 64)
+		download, _ := strconv.ParseFloat(dev.Download.(string), 64)
+		devupspeed, _ := strconv.ParseFloat(dev.Upspeed.(string), 64)
+		devdownspeed, _ := strconv.ParseFloat(dev.Downspeed.(string), 64)
 		var ip string
 		for _, d := range Mactoip.List {
 			if d.Mac == dev.Mac {

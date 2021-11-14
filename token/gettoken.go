@@ -65,6 +65,7 @@ func GetToken(ip, passwd string) Auth {
 		log.Println("获取认证错误，可能原因：1.账号或者密码错误，2.账号权限不足")
 		os.Exit(1)
 	}
+	fmt.Println(auth)
 	log.Println("获取Token成功")
 	return auth
 

@@ -13,15 +13,15 @@ import (
 
 type Status struct {
 	Dev []struct {
-		Mac              string `json:"mac"`
-		Maxdownloadspeed string `json:"maxdownloadspeed"`
-		Upload           string `json:"upload"`
-		Upspeed          string `json:"upspeed"`
-		Downspeed        string `json:"downspeed"`
-		Online           string `json:"online"`
-		Devname          string `json:"devname"`
-		Maxuploadspeed   string `json:"maxuploadspeed"`
-		Download         string `json:"download"`
+		Mac              string      `json:"mac"`
+		Maxdownloadspeed string      `json:"maxdownloadspeed"`
+		Upload           interface{} `json:"upload"`
+		Upspeed          interface{} `json:"upspeed"`
+		Downspeed        interface{} `json:"downspeed"`
+		Online           string      `json:"online"`
+		Devname          string      `json:"devname"`
+		Maxuploadspeed   string      `json:"maxuploadspeed"`
+		Download         interface{} `json:"download"`
 	} `json:"dev"`
 	Code int `json:"code"`
 	Mem  struct {
@@ -129,9 +129,11 @@ func GetMiwifiStatus() {
 		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机")
 		os.Exit(1)
 	}
+
 	body, err := ioutil.ReadAll(res.Body)
 	count := 0
 	if err = json.Unmarshal([]byte(body), &DevStatus); err != nil {
+		fmt.Println(DevStatus.Dev)
 		log.Println("Token失效，正在重试获取")
 		config.GetConfig()
 		GetMiwifiStatus()
