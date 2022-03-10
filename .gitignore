@@ -13,3 +13,13 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+.github/
+.idea/
+bin/
+
+go.sum
+go.mod
+
+go.mod
+go.sum

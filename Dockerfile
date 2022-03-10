@@ -1,4 +1,4 @@
-FROM golang
+FROM golang:1.17.1
 RUN go env -w GOPROXY=https://goproxy.cn,direct
 RUN apt update -y && apt install make
 RUN mkdir /exporter
