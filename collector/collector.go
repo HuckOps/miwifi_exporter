@@ -8,8 +8,10 @@ import (
 	"sync"
 )
 
+// 监控模块
 type Metrics struct {
-	metrics map[string]*prometheus.Desc
+	metrics map[string]*prometheus.Desc //监控map
+	// Metrics锁
 	mutex   sync.Mutex
 }
 

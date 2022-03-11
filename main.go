@@ -8,16 +8,11 @@ import (
 	"miwifi-exporter/collector"
 	"miwifi-exporter/config"
 	"net/http"
+	"os"
 	"strconv"
 )
 
 var (
-	// Set during go build
-	// version   string
-	// gitCommit string
-
-	// 命令行参数
-	//listenAddr       = flag.String("web.listen-port", "9001", "An port to listen on for web interface and telemetry.")
 	metricsPath      = flag.String("web.telemetry-path", "/metrics", "A path under which to expose metrics.")
 	metricsNamespace = flag.String("metric.namespace", "miwifi", "Prometheus metrics namespace, as the prefix of metrics name")
 )
@@ -38,13 +33,17 @@ func main() {
 	log.Println("启动服务器，监听端口为:" + strconv.Itoa(config.Config.Port))
 	http.Handle(*metricsPath, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
+		_, err := w.Write([]byte(`<html>
 			<head><title>A Prometheus Exporter</title></head>
 			<body>
 			<h1>A Prometheus Exporter</h1>
 			<p><a href='/metrics'>Metrics</a></p>
 			</body>
 			</html>`))
+		if err != nil {
+			log.Println("运行exporter错误")
+			os.Exit(1)
+		}
 	})
 
 	log.Printf("监控Metrics位置： http://localhost:%d%s", config.Config.Port, *metricsPath)
