@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"miwifi-exporter/config"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/helloworlde/miwifi-exporter/config"
 )
 
 type Status struct {

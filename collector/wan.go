@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"miwifi-exporter/config"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/helloworlde/miwifi-exporter/config"
 )
 
 type WAN struct {
