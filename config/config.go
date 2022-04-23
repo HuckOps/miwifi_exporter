@@ -20,14 +20,15 @@ var Config ConfigStruct
 var Token token.Auth
 
 func GetConfig() {
-	Config := ConfigStruct{}
+	config := ConfigStruct{}
+	config.Port = 9001
 
 	routerIp := os.Getenv("ROUTER_IP")
 	routerPassword := os.Getenv("ROUTER_PASSWORD")
 
 	if routerIp != "" && routerPassword != "" {
-		Config.IP = routerIp
-		Config.Password = routerPassword
+		config.IP = routerIp
+		config.Password = routerPassword
 	} else {
 		log.Println("从 config.json 读取配置")
 		f, err := os.Open("config.json")
@@ -36,10 +37,10 @@ func GetConfig() {
 			os.Exit(1)
 		}
 		byteValue, _ := ioutil.ReadAll(f)
-		_ = json.Unmarshal(byteValue, &Config)
+		_ = json.Unmarshal(byteValue, &config)
 	}
 
-	log.Println("获取到的地址: ", Config.IP, "密码: ", Config.Password)
-
+	Config = config
+	log.Println("获取到的地址: ", Config.IP, "密码: ", Config.Password, "端口: ", Config.Port)
 	Token = token.GetToken(Config.IP, Config.Password)
 }
