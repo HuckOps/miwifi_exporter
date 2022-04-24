@@ -42,7 +42,7 @@ func main() {
 			</body>
 			</html>`))
 		if err != nil {
-			log.Println("运行exporter错误")
+			log.Println("运行exporter错误", err)
 			os.Exit(1)
 		}
 	})

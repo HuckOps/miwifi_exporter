@@ -89,7 +89,7 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 	for _, dev := range DevStatus.Dev {
 		defer func() {
 			if err := recover(); err != nil {
-				fmt.Println("存在不正常数据，请检查API")
+				fmt.Println("存在不正常数据，请检查API", err)
 			}
 		}()
 		upload, _ := strconv.ParseFloat(dev.Upload.(string), 64)
