@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"miwifi-exporter/config"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/helloworlde/miwifi-exporter/config"
 )
 
 type WAN struct {
@@ -79,7 +80,7 @@ func GetWAN() {
 	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/xqnetwork/wan_info",
 		config.Config.IP, config.Token.Token))
 	if err != nil {
-		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机")
+		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机", err)
 		os.Exit(1)
 	}
 	body, err := ioutil.ReadAll(res.Body)
@@ -90,7 +91,7 @@ func GetWAN() {
 		count++
 		time.Sleep(1 * time.Minute)
 		if count >= 5 {
-			log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误")
+			log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误", err)
 			os.Exit(1)
 		}
 	}

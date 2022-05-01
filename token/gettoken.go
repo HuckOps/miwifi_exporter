@@ -27,7 +27,7 @@ func GetToken(ip, passwd string) Auth {
 	client := http.Client{}
 	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/web/home", ip))
 	if err != nil {
-		log.Println("获取路由器登录页错误，可能原因：1.配置的路由器IP错误")
+		log.Println("获取路由器登录页错误，可能原因：1.配置的路由器IP错误", err)
 		os.Exit(1)
 	}
 	body, _ := ioutil.ReadAll(res.Body)
@@ -41,7 +41,7 @@ func GetToken(ip, passwd string) Auth {
 		GetToken(ip, passwd)
 		count++
 		if count >= 5 {
-			log.Println("获取key或mac失败，可能原因：路由器固件升级改版")
+			log.Println("获取key或mac失败，可能原因：路由器固件升级改版", err1, err2)
 			os.Exit(1)
 		}
 	}
@@ -62,7 +62,7 @@ func GetToken(ip, passwd string) Auth {
 	auth := Auth{}
 
 	if err := json.Unmarshal(body, &auth); err != nil || auth.Code == 401 {
-		log.Println("获取认证错误，可能原因：1.账号或者密码错误，2.账号权限不足")
+		log.Println("获取认证错误，可能原因：1.账号或者密码错误，2.账号权限不足", err)
 		os.Exit(1)
 	}
 	log.Println("获取Token成功")

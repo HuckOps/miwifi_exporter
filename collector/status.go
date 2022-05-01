@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"miwifi-exporter/config"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/helloworlde/miwifi-exporter/config"
 )
 
 type Status struct {
@@ -103,7 +104,7 @@ func GetIPtoMAC() {
 	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/misystem/devicelist",
 		config.Config.IP, config.Token.Token))
 	if err != nil {
-		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机")
+		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机", err)
 		os.Exit(1)
 	}
 	body, err := ioutil.ReadAll(res.Body)
@@ -113,7 +114,7 @@ func GetIPtoMAC() {
 		count++
 		time.Sleep(1 * time.Minute)
 		if count >= 5 {
-			log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误")
+			log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误", err)
 			os.Exit(1)
 		}
 	}
@@ -126,7 +127,7 @@ func GetMiwifiStatus() {
 		config.Config.IP, config.Token.Token))
 
 	if err != nil {
-		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机")
+		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机", err)
 		os.Exit(1)
 	}
 
@@ -134,13 +135,13 @@ func GetMiwifiStatus() {
 	count := 0
 	if err = json.Unmarshal([]byte(body), &DevStatus); err != nil {
 		fmt.Println(DevStatus.Dev)
-		log.Println("Token失效，正在重试获取")
+		log.Println("Token失效，正在重试获取", err)
 		config.GetConfig()
 		GetMiwifiStatus()
 		count++
 		time.Sleep(1 * time.Minute)
 		if count >= 5 {
-			log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误")
+			log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误", err)
 			os.Exit(1)
 		}
 	}

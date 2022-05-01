@@ -2,14 +2,15 @@ package main
 
 import (
 	"flag"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
-	"miwifi-exporter/collector"
-	"miwifi-exporter/config"
 	"net/http"
 	"os"
 	"strconv"
+
+	"github.com/helloworlde/miwifi-exporter/collector"
+	"github.com/helloworlde/miwifi-exporter/config"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -41,7 +42,7 @@ func main() {
 			</body>
 			</html>`))
 		if err != nil {
-			log.Println("运行exporter错误")
+			log.Println("运行exporter错误", err)
 			os.Exit(1)
 		}
 	})

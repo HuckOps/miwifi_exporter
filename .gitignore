@@ -18,9 +18,4 @@
 .idea/
 bin/
 
-go.sum
-go.mod
-
-go.mod
-go.sum
 .DS_Store
