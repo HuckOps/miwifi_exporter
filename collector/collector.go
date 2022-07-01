@@ -29,16 +29,22 @@ func NewMetrics(namespace string) *Metrics {
 			"memory_usage_mb": newGlobalMetric(namespace, "memory_usage_mb", "", []string{"host"}),
 			"memory_usage":    newGlobalMetric(namespace, "memory_usage", "", []string{"host"}),
 
-			"online_device_amount":  newGlobalMetric(namespace, "online_device_amount", "", []string{"host"}),
-			"history_device_amount": newGlobalMetric(namespace, "history_device_amount", "", []string{"host"}),
+			"count_all":                 newGlobalMetric(namespace, "count_all", "", []string{"host"}),
+			"count_online":              newGlobalMetric(namespace, "count_online", "", []string{"host"}),
+			"count_all_without_mash":    newGlobalMetric(namespace, "count_all_without_mash", "", []string{"host"}),
+			"count_online_without_mash": newGlobalMetric(namespace, "count_online_without_mash", "", []string{"host"}),
 
-			"platform":             newGlobalMetric(namespace, "platform", "", []string{"platform"}),
-			"version":              newGlobalMetric(namespace, "version", "", []string{"version"}),
-			"sn":                   newGlobalMetric(namespace, "sn", "", []string{"sn"}),
-			"mac":                  newGlobalMetric(namespace, "mac", "", []string{"mac"}),
-			"ipv4":                 newGlobalMetric(namespace, "ipv4", "", []string{"ipv4"}),
-			"ipv4_mask":            newGlobalMetric(namespace, "ipv4_mask", "", []string{"ipv4"}),
-			"ipv6":                 newGlobalMetric(namespace, "ipv6", "", []string{"ipv6"}),
+			"uptime": newGlobalMetric(namespace, "uptime", "", []string{"uptime"}),
+
+			"platform": newGlobalMetric(namespace, "platform", "", []string{"platform"}),
+			"version":  newGlobalMetric(namespace, "version", "", []string{"version"}),
+			"sn":       newGlobalMetric(namespace, "sn", "", []string{"sn"}),
+			"mac":      newGlobalMetric(namespace, "mac", "", []string{"mac"}),
+
+			"ipv4":      newGlobalMetric(namespace, "ipv4", "", []string{"ipv4"}),
+			"ipv4_mask": newGlobalMetric(namespace, "ipv4_mask", "", []string{"ipv4"}),
+			"ipv6":      newGlobalMetric(namespace, "ipv6", "", []string{"ipv6"}),
+
 			"wan_upload_speed":     newGlobalMetric(namespace, "wan_upload_speed", "", []string{"host"}),
 			"wan_download_speed":   newGlobalMetric(namespace, "wan_download_speed", "", []string{"host"}),
 			"wan_upload_traffic":   newGlobalMetric(namespace, "wan_upload_traffic", "", []string{"host"}),
@@ -82,17 +88,22 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.metrics["memory_usage_mb"], prometheus.GaugeValue, StatusRepo.Mem.Usage*routerMemoryTotal, host)
 	ch <- prometheus.MustNewConstMetric(c.metrics["memory_usage"], prometheus.GaugeValue, StatusRepo.Mem.Usage, host)
 
-	ch <- prometheus.MustNewConstMetric(c.metrics["history_device_amount"], prometheus.GaugeValue, float64(StatusRepo.Count.All), host)
-	ch <- prometheus.MustNewConstMetric(c.metrics["online_device_amount"], prometheus.GaugeValue, float64(StatusRepo.Count.Online), host)
+	ch <- prometheus.MustNewConstMetric(c.metrics["count_all"], prometheus.GaugeValue, float64(StatusRepo.Count.All), host)
+	ch <- prometheus.MustNewConstMetric(c.metrics["count_online"], prometheus.GaugeValue, float64(StatusRepo.Count.Online), host)
+	ch <- prometheus.MustNewConstMetric(c.metrics["count_all_without_mash"], prometheus.GaugeValue, float64(StatusRepo.Count.AllWithoutMash), host)
+	ch <- prometheus.MustNewConstMetric(c.metrics["count_online_without_mash"], prometheus.GaugeValue, float64(StatusRepo.Count.OnlineWithoutMash), host)
+
+	ch <- prometheus.MustNewConstMetric(c.metrics["uptime"], prometheus.GaugeValue, 1, StatusRepo.UpTime)
+
+	ch <- prometheus.MustNewConstMetric(c.metrics["platform"], prometheus.GaugeValue, 1, StatusRepo.Hardware.Platform)
+	ch <- prometheus.MustNewConstMetric(c.metrics["version"], prometheus.GaugeValue, 1, StatusRepo.Hardware.Version)
+	ch <- prometheus.MustNewConstMetric(c.metrics["sn"], prometheus.GaugeValue, 1, StatusRepo.Hardware.Sn)
+	ch <- prometheus.MustNewConstMetric(c.metrics["mac"], prometheus.GaugeValue, 1, StatusRepo.Hardware.Mac)
 
 	ch <- prometheus.MustNewConstMetric(c.metrics["wan_upload_speed"], prometheus.GaugeValue, routerUpSpeed, host)
 	ch <- prometheus.MustNewConstMetric(c.metrics["wan_download_speed"], prometheus.GaugeValue, routerDownSpeed, host)
 	ch <- prometheus.MustNewConstMetric(c.metrics["wan_upload_traffic"], prometheus.GaugeValue, routerUpload, host)
 	ch <- prometheus.MustNewConstMetric(c.metrics["wan_download_traffic"], prometheus.GaugeValue, routerDownload, host)
-	ch <- prometheus.MustNewConstMetric(c.metrics["platform"], prometheus.GaugeValue, 1, StatusRepo.Hardware.Platform)
-	ch <- prometheus.MustNewConstMetric(c.metrics["version"], prometheus.GaugeValue, 1, StatusRepo.Hardware.Version)
-	ch <- prometheus.MustNewConstMetric(c.metrics["sn"], prometheus.GaugeValue, 1, StatusRepo.Hardware.Sn)
-	ch <- prometheus.MustNewConstMetric(c.metrics["mac"], prometheus.GaugeValue, 1, StatusRepo.Hardware.Mac)
 
 	for _, ipv4 := range WanInfoRepo.Info.Ipv4 {
 		ch <- prometheus.MustNewConstMetric(c.metrics["ipv4"], prometheus.GaugeValue, 1, ipv4.IP)

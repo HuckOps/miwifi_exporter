@@ -35,8 +35,10 @@ type Status struct {
 	} `json:"mem"`
 	Temperature int `json:"temperature"`
 	Count       struct {
-		All    int `json:"all"`
-		Online int `json:"online"`
+		All               int `json:"all"`
+		Online            int `json:"online"`
+		AllWithoutMash    int `json:"all_without_mash"`
+		OnlineWithoutMash int `json:"online_without_mash"`
 	} `json:"count"`
 	Hardware struct {
 		Mac      string `json:"mac"`
