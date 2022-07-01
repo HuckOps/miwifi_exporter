@@ -21,7 +21,7 @@ docker compose up -d
 |---------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
 | cpu_cores                 | miwifi_cpu_cores{host="Redmi-AX6S"} 2                                                                                                       |
 | cpu_mhz                   | miwifi_cpu_mhz{host="Redmi-AX6S"} 1000                                                                                                      |
-| cpu_load                  | miwifi_cpu_load{host="Redmi-AX6S"} 0 (This Value always 0, 💩Xiaomi)                                                                        |
+| cpu_load                  | miwifi_cpu_load{host="Redmi-AX6S"} 0 (This value always 0, 💩Xiaomi)                                                                        |
 | memory_total_mb           | miwifi_memory_total_mb{host="Redmi-AX6S"} 256                                                                                               |
 | memory_usage_mb           | miwifi_memory_usage_mb{host="Redmi-AX6S"} 115.2                                                                                             |
 | memory_usage              | miwifi_memory_usage{host="Redmi-AX6S"} 0.45                                                                                                 |
