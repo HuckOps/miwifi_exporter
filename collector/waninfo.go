@@ -15,29 +15,29 @@ import (
 	"github.com/helloworlde/miwifi-exporter/config"
 )
 
-type WAN struct {
+type WanInfo struct {
 	Info struct {
 		Mac     string `json:"mac"`
 		Mtu     string `json:"mtu"`
 		Details struct {
 			Username string `json:"username"`
-			Ifname   string `json:"ifname"`
+			IfName   string `json:"ifname"`
 			WanType  string `json:"wanType"`
 			Service  string `json:"service"`
 			Password string `json:"password"`
-			Peerdns  string `json:"peerdns"`
+			PeerDns  string `json:"peerdns"`
 		} `json:"details"`
-		GateWay   string `json:"gateWay"`
-		DNSAddrs1 string `json:"dnsAddrs1"`
-		Status    int    `json:"status"`
-		Uptime    int    `json:"uptime"`
-		DNSAddrs  string `json:"dnsAddrs"`
-		Ipv6Info  struct {
+		GateWay  string `json:"gateWay"`
+		DnsAddr1 string `json:"dnsAddrs1"`
+		Status   int    `json:"status"`
+		Uptime   int    `json:"uptime"`
+		DNSAddr  string `json:"dnsAddrs"`
+		Ipv6Info struct {
 			WanType      string        `json:"wanType"`
-			Ifname       string        `json:"ifname"`
+			IfName       string        `json:"ifname"`
 			DNS          []interface{} `json:"dns"`
 			IP6Addr      []string      `json:"ip6addr"`
-			Peerdns      string        `json:"peerdns"`
+			PeerDns      string        `json:"peerdns"`
 			LanIP6Prefix []interface{} `json:"lan_ip6prefix"`
 			LanIP6Addr   []interface{} `json:"lan_ip6addr"`
 		} `json:"ipv6_info"`
@@ -51,7 +51,7 @@ type WAN struct {
 	Code int `json:"code"`
 }
 
-var WANInfo WAN
+var WanInfoRepo WanInfo
 
 func SubNetMaskToLen(netmask string) (int, error) {
 	ipSplitArr := strings.Split(netmask, ".")
@@ -75,17 +75,17 @@ func SubNetMaskToLen(netmask string) (int, error) {
 
 }
 
-func GetWAN() {
+func GetWifiWanInfo() {
 	client := http.Client{}
 	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/xqnetwork/wan_info",
-		config.Config.IP, config.Token.Token))
+		config.Configs.IP, config.Token.Token))
 	if err != nil {
 		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机", err)
 		os.Exit(1)
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	count := 0
-	if err = json.Unmarshal([]byte(body), &WANInfo); err != nil {
+	if err = json.Unmarshal(body, &WanInfoRepo); err != nil {
 		log.Println("Token失效，正在重试获取")
 		config.GetConfig()
 		count++

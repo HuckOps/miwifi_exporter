@@ -31,7 +31,7 @@ func main() {
 	registry.MustRegister(metrics)
 	log.Println("监控指标初始化注册完成")
 
-	log.Println("启动服务器，监听端口为:" + strconv.Itoa(config.Config.Port))
+	log.Println("启动服务器，监听端口为:" + strconv.Itoa(config.Configs.Port))
 	http.Handle(*metricsPath, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write([]byte(`<html>
@@ -47,7 +47,6 @@ func main() {
 		}
 	})
 
-	log.Printf("监控Metrics位置： http://localhost:%d%s", config.Config.Port, *metricsPath)
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(config.Config.Port), nil))
-
+	log.Printf("监控Metrics位置： http://localhost:%d%s", config.Configs.Port, *metricsPath)
+	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(config.Configs.Port), nil))
 }

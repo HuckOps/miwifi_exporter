@@ -32,9 +32,9 @@ func GetToken(ip, passwd string) Auth {
 	}
 	body, _ := ioutil.ReadAll(res.Body)
 	src := string(body)
-	re, err1 := regexp.Compile("key: \\'(.*)'")
+	re, err1 := regexp.Compile("key: '(.*)'")
 	key := strings.Split(re.FindAllString(src, -1)[0], "'")[1]
-	re, err2 := regexp.Compile("deviceId = \\'(.*)'")
+	re, err2 := regexp.Compile("deviceId = '(.*)'")
 	mac := strings.Split(re.FindAllString(src, -1)[0], "'")[1]
 	count := 0
 	if err1 != nil || err2 != nil {
@@ -48,16 +48,16 @@ func GetToken(ip, passwd string) Auth {
 	nonce := "0_" + mac + "_" + strconv.Itoa(int(time.Now().Unix())) + "_" + strconv.Itoa(int(rand.Float64()*10000))
 	pwd := sha1.New()
 	pwd.Write([]byte(passwd + key))
-	hexpwd1 := fmt.Sprintf("%x", pwd.Sum(nil))
+	hexPwd1 := fmt.Sprintf("%x", pwd.Sum(nil))
 	pwd2 := sha1.New()
-	pwd2.Write([]byte(nonce + hexpwd1))
-	hexpwd2 := fmt.Sprintf("%x", pwd2.Sum(nil))
+	pwd2.Write([]byte(nonce + hexPwd1))
+	hexPwd2 := fmt.Sprintf("%x", pwd2.Sum(nil))
 	data := make(url.Values)
 	data["logtype"] = []string{"2"}
 	data["nonce"] = []string{nonce}
-	data["password"] = []string{hexpwd2}
+	data["password"] = []string{hexPwd2}
 	data["username"] = []string{"admin"}
-	res, _ = client.PostForm("http://192.168.31.1/cgi-bin/luci/api/xqsystem/login", data)
+	res, _ = client.PostForm("http://"+ip+"/cgi-bin/luci/api/xqsystem/login", data)
 	body, _ = ioutil.ReadAll(res.Body)
 	auth := Auth{}
 
@@ -66,6 +66,6 @@ func GetToken(ip, passwd string) Auth {
 		os.Exit(1)
 	}
 	log.Println("获取Token成功")
-	return auth
 
+	return auth
 }
