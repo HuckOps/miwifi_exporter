@@ -148,10 +148,25 @@ func GetMiWifiStatus() {
 	}
 }
 
+func (r *Status) GetRouterCPUMhz() float64 {
+	var n float64
+
+	if len(strings.Split(StatusRepo.CPU.Hz, "MHz")) < 1 {
+		return n
+	}
+
+	n, err := strconv.ParseFloat(strings.Split(StatusRepo.CPU.Hz, "MHz")[0], 64)
+	if err != nil {
+		log.Println("err: ", err)
+	}
+
+	return n
+}
+
 func (r *Status) GetRouterMemoryTotal() float64 {
 	var n float64
 
-	if len(r.Mem.Total) < 1 {
+	if len(strings.Split(StatusRepo.Mem.Total, "MB")) < 1 {
 		return n
 	}
 
