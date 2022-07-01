@@ -150,6 +150,17 @@ func GetMiWifiStatus() {
 	}
 }
 
+func (r *Status) GetRouterUptime() float64 {
+	var n float64
+
+	n, err := strconv.ParseFloat(r.UpTime, 64)
+	if err != nil {
+		log.Println("err: ", err)
+	}
+
+	return n
+}
+
 func (r *Status) GetRouterCPUMhz() float64 {
 	var n float64
 

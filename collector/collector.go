@@ -34,7 +34,7 @@ func NewMetrics(namespace string) *Metrics {
 			"count_all_without_mash":    newGlobalMetric(namespace, "count_all_without_mash", "", []string{"host"}),
 			"count_online_without_mash": newGlobalMetric(namespace, "count_online_without_mash", "", []string{"host"}),
 
-			"uptime": newGlobalMetric(namespace, "uptime", "", []string{"uptime"}),
+			"uptime": newGlobalMetric(namespace, "uptime", "", []string{"host"}),
 
 			"platform": newGlobalMetric(namespace, "platform", "", []string{"platform"}),
 			"version":  newGlobalMetric(namespace, "version", "", []string{"version"}),
@@ -79,6 +79,7 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 	routerDownSpeed := StatusRepo.GetRouterDownSpeed()
 	routerUpload := StatusRepo.GetRouterUpload()
 	routerDownload := StatusRepo.GetRouterDownload()
+	routerUptime := StatusRepo.GetRouterUptime()
 
 	ch <- prometheus.MustNewConstMetric(c.metrics["cpu_cores"], prometheus.GaugeValue, float64(StatusRepo.CPU.Core), host)
 	ch <- prometheus.MustNewConstMetric(c.metrics["cpu_mhz"], prometheus.GaugeValue, routerCPUHz, host)
@@ -93,7 +94,7 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.metrics["count_all_without_mash"], prometheus.GaugeValue, float64(StatusRepo.Count.AllWithoutMash), host)
 	ch <- prometheus.MustNewConstMetric(c.metrics["count_online_without_mash"], prometheus.GaugeValue, float64(StatusRepo.Count.OnlineWithoutMash), host)
 
-	ch <- prometheus.MustNewConstMetric(c.metrics["uptime"], prometheus.GaugeValue, 1, StatusRepo.UpTime)
+	ch <- prometheus.MustNewConstMetric(c.metrics["uptime"], prometheus.GaugeValue, routerUptime, host)
 
 	ch <- prometheus.MustNewConstMetric(c.metrics["platform"], prometheus.GaugeValue, 1, StatusRepo.Hardware.Platform)
 	ch <- prometheus.MustNewConstMetric(c.metrics["version"], prometheus.GaugeValue, 1, StatusRepo.Hardware.Version)
