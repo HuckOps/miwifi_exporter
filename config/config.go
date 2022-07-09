@@ -9,22 +9,27 @@ import (
 	"github.com/helloworlde/miwifi-exporter/token"
 )
 
-type ConfigStruct struct {
+type Config struct {
 	IP       string `json:"ip"`
 	Password string `json:"password"`
 	Port     int    `json:"port"`
-	// Stok string	`json:"stok"`
+	Host     string `json:"host"`
 }
 
-var Config ConfigStruct
+var Configs Config
 var Token token.Auth
 
 func GetConfig() {
-	config := ConfigStruct{}
+	config := Config{}
 	config.Port = 9001
+	config.Host = "miwifi"
 
 	routerIp := os.Getenv("ROUTER_IP")
 	routerPassword := os.Getenv("ROUTER_PASSWORD")
+	routerHost := os.Getenv("ROUTER_HOST")
+	if routerHost != "" {
+		config.Host = routerHost
+	}
 
 	if routerIp != "" && routerPassword != "" {
 		config.IP = routerIp
@@ -40,7 +45,11 @@ func GetConfig() {
 		_ = json.Unmarshal(byteValue, &config)
 	}
 
-	Config = config
-	log.Println("获取到的地址: ", Config.IP, "密码: ", Config.Password, "端口: ", Config.Port)
-	Token = token.GetToken(Config.IP, Config.Password)
+	Configs = config
+	log.Println("获取到的地址: ", Configs.IP, "密码: ", Configs.Password, "端口: ", Configs.Port)
+	Token = token.GetToken(Configs.IP, Configs.Password)
+}
+
+func GetHost() string {
+	return Configs.Host
 }

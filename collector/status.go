@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/helloworlde/miwifi-exporter/config"
@@ -15,13 +17,13 @@ import (
 type Status struct {
 	Dev []struct {
 		Mac              string      `json:"mac"`
-		Maxdownloadspeed string      `json:"maxdownloadspeed"`
+		MaxDownloadSpeed string      `json:"maxdownloadspeed"`
 		Upload           interface{} `json:"upload"`
-		Upspeed          interface{} `json:"upspeed"`
-		Downspeed        interface{} `json:"downspeed"`
+		UpSpeed          interface{} `json:"upspeed"`
+		DownSpeed        interface{} `json:"downspeed"`
 		Online           string      `json:"online"`
-		Devname          string      `json:"devname"`
-		Maxuploadspeed   string      `json:"maxuploadspeed"`
+		DevName          string      `json:"devname"`
+		MaxUploadSpeed   string      `json:"maxuploadspeed"`
 		Download         interface{} `json:"download"`
 	} `json:"dev"`
 	Code int `json:"code"`
@@ -33,8 +35,10 @@ type Status struct {
 	} `json:"mem"`
 	Temperature int `json:"temperature"`
 	Count       struct {
-		All    int `json:"all"`
-		Online int `json:"online"`
+		All               int `json:"all"`
+		Online            int `json:"online"`
+		AllWithoutMash    int `json:"all_without_mash"`
+		OnlineWithoutMash int `json:"online_without_mash"`
 	} `json:"count"`
 	Hardware struct {
 		Mac      string `json:"mac"`
@@ -50,27 +54,27 @@ type Status struct {
 		Load float64 `json:"load"`
 	} `json:"cpu"`
 	Wan struct {
-		Downspeed        string `json:"downspeed"`
-		Maxdownloadspeed string `json:"maxdownloadspeed"`
+		DownSpeed        string `json:"downspeed"`
+		MaxDownloadSpeed string `json:"maxdownloadspeed"`
 		History          string `json:"history"`
-		Devname          string `json:"devname"`
+		DevName          string `json:"devname"`
 		Upload           string `json:"upload"`
-		Upspeed          string `json:"upspeed"`
-		Maxuploadspeed   string `json:"maxuploadspeed"`
+		UpSpeed          string `json:"upspeed"`
+		MaxUploadSpeed   string `json:"maxuploadspeed"`
 		Download         string `json:"download"`
 	} `json:"wan"`
 }
 
-type MACtoIP struct {
+type DeviceList struct {
 	Mac  string `json:"mac"`
 	List []struct {
 		Mac       string `json:"mac"`
-		Oname     string `json:"oname"`
-		Isap      int    `json:"isap"`
+		OnNme     string `json:"oname"`
+		IsAP      int    `json:"isap"`
 		Parent    string `json:"parent"`
 		Authority struct {
 			Wan     int `json:"wan"`
-			Pridisk int `json:"pridisk"`
+			PriDisk int `json:"pridisk"`
 			Admin   int `json:"admin"`
 			Lan     int `json:"lan"`
 		} `json:"authority"`
@@ -79,16 +83,16 @@ type MACtoIP struct {
 		Name   string `json:"name"`
 		Times  int    `json:"times"`
 		IP     []struct {
-			Downspeed string `json:"downspeed"`
+			DownSpeed string `json:"downspeed"`
 			Online    string `json:"online"`
 			Active    int    `json:"active"`
-			Upspeed   string `json:"upspeed"`
+			UpSpeed   string `json:"upspeed"`
 			IP        string `json:"ip"`
 		} `json:"ip"`
 		Statistics struct {
-			Downspeed string `json:"downspeed"`
+			DownSpeed string `json:"downspeed"`
 			Online    string `json:"online"`
-			Upspeed   string `json:"upspeed"`
+			UpSpeed   string `json:"upspeed"`
 		} `json:"statistics"`
 		Icon string `json:"icon"`
 		Type int    `json:"type"`
@@ -96,20 +100,20 @@ type MACtoIP struct {
 	Code int `json:"code"`
 }
 
-var DevStatus Status
-var Mactoip MACtoIP
+var StatusRepo Status
+var DeviceListRepo DeviceList
 
-func GetIPtoMAC() {
+func GetMiWifiDeviceList() {
 	client := http.Client{}
 	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/misystem/devicelist",
-		config.Config.IP, config.Token.Token))
+		config.Configs.IP, config.Token.Token))
 	if err != nil {
 		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机", err)
 		os.Exit(1)
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	count := 0
-	if err = json.Unmarshal([]byte(body), &Mactoip); err != nil {
+	if err = json.Unmarshal(body, &DeviceListRepo); err != nil {
 		log.Println("Token失效，正在重试获取")
 		count++
 		time.Sleep(1 * time.Minute)
@@ -121,10 +125,10 @@ func GetIPtoMAC() {
 
 }
 
-func GetMiwifiStatus() {
+func GetMiWifiStatus() {
 	client := http.Client{}
 	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/misystem/status",
-		config.Config.IP, config.Token.Token))
+		config.Configs.IP, config.Token.Token))
 
 	if err != nil {
 		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机", err)
@@ -133,11 +137,10 @@ func GetMiwifiStatus() {
 
 	body, err := ioutil.ReadAll(res.Body)
 	count := 0
-	if err = json.Unmarshal([]byte(body), &DevStatus); err != nil {
-		fmt.Println(DevStatus.Dev)
+	if err = json.Unmarshal(body, &StatusRepo); err != nil {
 		log.Println("Token失效，正在重试获取", err)
 		config.GetConfig()
-		GetMiwifiStatus()
+		GetMiWifiStatus()
 		count++
 		time.Sleep(1 * time.Minute)
 		if count >= 5 {
@@ -145,4 +148,89 @@ func GetMiwifiStatus() {
 			os.Exit(1)
 		}
 	}
+}
+
+func (r *Status) GetRouterUptime() float64 {
+	var n float64
+
+	n, err := strconv.ParseFloat(r.UpTime, 64)
+	if err != nil {
+		log.Println("err: ", err)
+	}
+
+	return n
+}
+
+func (r *Status) GetRouterCPUMhz() float64 {
+	var n float64
+
+	if len(strings.Split(StatusRepo.CPU.Hz, "MHz")) < 1 {
+		return n
+	}
+
+	n, err := strconv.ParseFloat(strings.Split(StatusRepo.CPU.Hz, "MHz")[0], 64)
+	if err != nil {
+		log.Println("err: ", err)
+	}
+
+	return n
+}
+
+func (r *Status) GetRouterMemoryTotal() float64 {
+	var n float64
+
+	if len(strings.Split(StatusRepo.Mem.Total, "MB")) < 1 {
+		return n
+	}
+
+	n, err := strconv.ParseFloat(strings.Split(StatusRepo.Mem.Total, "MB")[0], 64)
+	if err != nil {
+		log.Println("err: ", err)
+	}
+
+	return n
+}
+
+func (r *Status) GetRouterUpSpeed() float64 {
+	var n float64
+
+	n, err := strconv.ParseFloat(r.Wan.UpSpeed, 64)
+	if err != nil {
+		log.Println("err: ", err)
+	}
+
+	return n
+}
+
+func (r *Status) GetRouterDownSpeed() float64 {
+	var n float64
+
+	n, err := strconv.ParseFloat(r.Wan.DownSpeed, 64)
+	if err != nil {
+		log.Println("err: ", err)
+	}
+
+	return n
+}
+
+func (r *Status) GetRouterUpload() float64 {
+	var n float64
+
+	n, err := strconv.ParseFloat(r.Wan.Upload, 64)
+	if err != nil {
+		log.Println("err: ", err)
+	}
+
+	return n
+}
+
+func (r *Status) GetRouterDownload() float64 {
+	var n float64
+
+	n, err := strconv.ParseFloat(r.Wan.Download, 64)
+	if err != nil {
+		log.Println("err: ", err)
+	}
+
+	return n
 }
