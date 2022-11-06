@@ -54,6 +54,8 @@ func NewMetrics(namespace string) *Metrics {
 			"device_upload_speed":     newGlobalMetric(namespace, "device_upload_speed", "", []string{"ip", "mac", "device_name", "is_ap"}),
 			"device_download_traffic": newGlobalMetric(namespace, "device_download_traffic", "", []string{"ip", "mac", "device_name", "is_ap"}),
 			"device_download_speed":   newGlobalMetric(namespace, "device_download_speed", "", []string{"ip", "mac", "device_name", "is_ap"}),
+
+			"wifi_detail": newGlobalMetric(namespace, "wifi_detail", "", []string{"ssid", "status", "band_list", "channel"}),
 		},
 	}
 }
@@ -68,9 +70,10 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	GetMiWifiStatus()
-	GetMiWifiDeviceList()
-	GetWifiWanInfo()
+	GetMiSystemStatus()
+	GetMiSystemDeviceList()
+	GetXQnetWorkWanInfo()
+	GetXQnetWorkWifiDetailAll()
 	host := config.GetHost()
 
 	routerCPUHz := StatusRepo.GetRouterCPUMhz()
@@ -152,6 +155,24 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(c.metrics["device_download_traffic"], prometheus.GaugeValue, devDownload, devIP, devMac, devName, devIsAP)
 		ch <- prometheus.MustNewConstMetric(c.metrics["device_upload_speed"], prometheus.GaugeValue, devUpSpeed, devIP, devMac, devName, devIsAP)
 		ch <- prometheus.MustNewConstMetric(c.metrics["device_download_speed"], prometheus.GaugeValue, devDownSpeed, devIP, devMac, devName, devIsAP)
+	}
+
+	for _, info := range WifiDetailAllRepo.Info {
+		status, err := InterfaceToFloat64(info.Status)
+		if err != nil {
+			log.Println("err: ", err)
+		}
+		bandList := ""
+		for i, band := range info.ChannelInfo.BandList {
+			bandList += band
+			if i != len(info.ChannelInfo.BandList)-1 {
+				bandList += "/"
+			} else {
+				bandList += "MHz"
+			}
+		}
+		channel := strconv.Itoa(info.ChannelInfo.Channel)
+		ch <- prometheus.MustNewConstMetric(c.metrics["wifi_detail"], prometheus.GaugeValue, status, info.Ssid, info.Status, bandList, channel)
 	}
 }
 

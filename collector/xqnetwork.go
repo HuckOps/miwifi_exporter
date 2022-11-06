@@ -51,7 +51,38 @@ type WanInfo struct {
 	Code int `json:"code"`
 }
 
+type WifiDetailAll struct {
+	Bsd  int `json:"bsd"`
+	Info []struct {
+		IfName      string `json:"ifname"`
+		ChannelInfo struct {
+			Bandwidth string   `json:"bandwidth"`
+			BandList  []string `json:"bandList"`
+			Channel   int      `json:"channel"`
+		} `json:"channelInfo"`
+		Encryption    string `json:"encryption"`
+		Bandwidth     string `json:"bandwidth"`
+		KickThreshold string `json:"kickthreshold"`
+		Status        string `json:"status"`
+		Mode          string `json:"mode"`
+		Bsd           string `json:"bsd"`
+		Ssid          string `json:"ssid"`
+		WeakThreshold string `json:"weakthreshold"`
+		Device        string `json:"device"`
+		Ax            string `json:"ax"`
+		Hidden        int    `json:"hidden"`
+		Password      string `json:"password"`
+		Channel       string `json:"channel"`
+		TxPWR         string `json:"txpwr"`
+		WeakEnable    string `json:"weakenable"`
+		TxBF          string `json:"txbf"`
+		Signal        int    `json:"signal"`
+	} `json:"info"`
+	Code int `json:"code"`
+}
+
 var WanInfoRepo WanInfo
+var WifiDetailAllRepo WifiDetailAll
 
 func SubNetMaskToLen(netmask string) (int, error) {
 	ipSplitArr := strings.Split(netmask, ".")
@@ -75,7 +106,7 @@ func SubNetMaskToLen(netmask string) (int, error) {
 
 }
 
-func GetWifiWanInfo() {
+func GetXQnetWorkWanInfo() {
 	client := http.Client{}
 	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/xqnetwork/wan_info",
 		config.Configs.IP, config.Token.Token))
@@ -86,6 +117,28 @@ func GetWifiWanInfo() {
 	body, err := ioutil.ReadAll(res.Body)
 	count := 0
 	if err = json.Unmarshal(body, &WanInfoRepo); err != nil {
+		log.Println("Token失效，正在重试获取")
+		config.GetConfig()
+		count++
+		time.Sleep(1 * time.Minute)
+		if count >= 5 {
+			log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误", err)
+			os.Exit(1)
+		}
+	}
+}
+
+func GetXQnetWorkWifiDetailAll() {
+	client := http.Client{}
+	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/xqnetwork/wifi_detail_all",
+		config.Configs.IP, config.Token.Token))
+	if err != nil {
+		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机", err)
+		os.Exit(1)
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	count := 0
+	if err = json.Unmarshal(body, &WifiDetailAllRepo); err != nil {
 		log.Println("Token失效，正在重试获取")
 		config.GetConfig()
 		count++
