@@ -103,7 +103,7 @@ type DeviceList struct {
 var StatusRepo Status
 var DeviceListRepo DeviceList
 
-func GetMiWifiDeviceList() {
+func GetMiSystemDeviceList() {
 	client := http.Client{}
 	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/misystem/devicelist",
 		config.Configs.IP, config.Token.Token))
@@ -125,7 +125,7 @@ func GetMiWifiDeviceList() {
 
 }
 
-func GetMiWifiStatus() {
+func GetMiSystemStatus() {
 	client := http.Client{}
 	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/misystem/status",
 		config.Configs.IP, config.Token.Token))
@@ -140,7 +140,7 @@ func GetMiWifiStatus() {
 	if err = json.Unmarshal(body, &StatusRepo); err != nil {
 		log.Println("Token失效，正在重试获取", err)
 		config.GetConfig()
-		GetMiWifiStatus()
+		GetMiSystemStatus()
 		count++
 		time.Sleep(1 * time.Minute)
 		if count >= 5 {
@@ -164,13 +164,19 @@ func (r *Status) GetRouterUptime() float64 {
 func (r *Status) GetRouterCPUMhz() float64 {
 	var n float64
 
-	if len(strings.Split(StatusRepo.CPU.Hz, "MHz")) < 1 {
-		return n
-	}
-
-	n, err := strconv.ParseFloat(strings.Split(StatusRepo.CPU.Hz, "MHz")[0], 64)
-	if err != nil {
-		log.Println("err: ", err)
+	switch {
+	case strings.HasSuffix(StatusRepo.CPU.Hz, "GHz"):
+		x, err := strconv.ParseFloat(strings.Split(StatusRepo.CPU.Hz, "GHz")[0], 64)
+		if err != nil {
+			log.Println("err: ", err)
+		}
+		n = x * 1000
+	case strings.HasSuffix(StatusRepo.CPU.Hz, "MHz"):
+		x, err := strconv.ParseFloat(strings.Split(StatusRepo.CPU.Hz, "MHz")[0], 64)
+		if err != nil {
+			log.Println("err: ", err)
+		}
+		n = x
 	}
 
 	return n
