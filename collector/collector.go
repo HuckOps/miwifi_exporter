@@ -54,6 +54,7 @@ func NewMetrics(namespace string) *Metrics {
 			"device_upload_speed":     newGlobalMetric(namespace, "device_upload_speed", "", []string{"ip", "mac", "device_name", "is_ap"}),
 			"device_download_traffic": newGlobalMetric(namespace, "device_download_traffic", "", []string{"ip", "mac", "device_name", "is_ap"}),
 			"device_download_speed":   newGlobalMetric(namespace, "device_download_speed", "", []string{"ip", "mac", "device_name", "is_ap"}),
+			"device_online_time":      newGlobalMetric(namespace, "device_online_time", "", []string{"ip", "mac", "device_name", "is_ap"}),
 
 			"wifi_detail": newGlobalMetric(namespace, "wifi_detail", "", []string{"ssid", "status", "band_list", "channel"}),
 		},
@@ -127,14 +128,6 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 		if err != nil {
 			log.Println("err: ", err)
 		}
-		devUpSpeed, err := InterfaceToFloat64(dev.UpSpeed)
-		if err != nil {
-			log.Println("err: ", err)
-		}
-		devDownSpeed, err := InterfaceToFloat64(dev.DownSpeed)
-		if err != nil {
-			log.Println("err: ", err)
-		}
 
 		var devIP string
 		var devMac string
@@ -153,8 +146,31 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 
 		ch <- prometheus.MustNewConstMetric(c.metrics["device_upload_traffic"], prometheus.GaugeValue, devUpload, devIP, devMac, devName, devIsAP)
 		ch <- prometheus.MustNewConstMetric(c.metrics["device_download_traffic"], prometheus.GaugeValue, devDownload, devIP, devMac, devName, devIsAP)
-		ch <- prometheus.MustNewConstMetric(c.metrics["device_upload_speed"], prometheus.GaugeValue, devUpSpeed, devIP, devMac, devName, devIsAP)
-		ch <- prometheus.MustNewConstMetric(c.metrics["device_download_speed"], prometheus.GaugeValue, devDownSpeed, devIP, devMac, devName, devIsAP)
+	}
+
+	for _, dev := range DeviceListRepo.List {
+		if len(dev.IP) > 0 {
+			devMac := dev.Mac
+			devName := dev.Name
+			devIsAP := strconv.Itoa(dev.IsAP)
+			devOnlineTime, err := InterfaceToFloat64(dev.Statistics.Online)
+			if err != nil {
+				log.Println("err: ", err)
+			}
+			devIP := dev.IP[0].IP
+			devUpSpeed, err := InterfaceToFloat64(dev.Statistics.UpSpeed)
+			if err != nil {
+				log.Println("err: ", err)
+			}
+			devDownSpeed, err := InterfaceToFloat64(dev.Statistics.DownSpeed)
+			if err != nil {
+				log.Println("err: ", err)
+			}
+
+			ch <- prometheus.MustNewConstMetric(c.metrics["device_upload_speed"], prometheus.GaugeValue, devUpSpeed, devIP, devMac, devName, devIsAP)
+			ch <- prometheus.MustNewConstMetric(c.metrics["device_download_speed"], prometheus.GaugeValue, devDownSpeed, devIP, devMac, devName, devIsAP)
+			ch <- prometheus.MustNewConstMetric(c.metrics["device_online_time"], prometheus.GaugeValue, devOnlineTime, devIP, devMac, devName, devIsAP)
+		}
 	}
 
 	for _, info := range WifiDetailAllRepo.Info {
