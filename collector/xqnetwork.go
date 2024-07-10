@@ -70,7 +70,7 @@ type WifiDetailAll struct {
 		WeakThreshold string `json:"weakthreshold"`
 		Device        string `json:"device"`
 		Ax            string `json:"ax"`
-		Hidden        int    `json:"hidden"`
+		Hidden        string `json:"hidden"`
 		Password      string `json:"password"`
 		Channel       string `json:"channel"`
 		TxPWR         string `json:"txpwr"`

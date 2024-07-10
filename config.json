@@ -1,5 +1,5 @@
 {
-  "ip": "192.168.31.1",
-  "password": "qwertyuiop",
-  "port": 9001
+    "ip": "192.168.31.1",
+    "password": "",
+    "port": 9001
 }

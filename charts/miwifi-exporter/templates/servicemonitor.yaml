@@ -1,0 +1,12 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "miwifi-exporter.fullname" . }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "miwifi-exporter.selectorLabels" . | nindent 4 }}
+  endpoints:
+    - port: http
+      interval: 30s
+      path: /metrics
