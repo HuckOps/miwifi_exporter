@@ -58,7 +58,7 @@ type WifiDetailAll struct {
 		ChannelInfo struct {
 			Bandwidth string   `json:"bandwidth"`
 			BandList  []string `json:"bandList"`
-			Channel   int      `json:"channel"`
+			Channel   any      `json:"channel"`
 		} `json:"channelInfo"`
 		Encryption    string `json:"encryption"`
 		Bandwidth     string `json:"bandwidth"`
@@ -70,7 +70,7 @@ type WifiDetailAll struct {
 		WeakThreshold string `json:"weakthreshold"`
 		Device        string `json:"device"`
 		Ax            string `json:"ax"`
-		Hidden        string `json:"hidden"`
+		Hidden        any    `json:"hidden"`
 		Password      string `json:"password"`
 		Channel       string `json:"channel"`
 		TxPWR         string `json:"txpwr"`
