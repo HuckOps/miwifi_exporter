@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 	"sync"
@@ -187,7 +188,7 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 				bandList += "MHz"
 			}
 		}
-		channel := strconv.Itoa(info.ChannelInfo.Channel)
+		channel := fmt.Sprintf("%d", info.ChannelInfo.Channel)
 		ch <- prometheus.MustNewConstMetric(c.metrics["wifi_detail"], prometheus.GaugeValue, status, info.Ssid, info.Status, bandList, channel)
 	}
 }
