@@ -188,7 +188,7 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 				bandList += "MHz"
 			}
 		}
-		channel := fmt.Sprintf("%d", info.ChannelInfo.Channel)
+		channel := fmt.Sprintf("%v", info.ChannelInfo.Channel)
 		ch <- prometheus.MustNewConstMetric(c.metrics["wifi_detail"], prometheus.GaugeValue, status, info.Ssid, info.Status, bandList, channel)
 	}
 }
