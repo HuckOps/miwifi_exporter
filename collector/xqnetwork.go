@@ -16,39 +16,41 @@ import (
 )
 
 type WanInfo struct {
-	Info struct {
-		Mac     string `json:"mac"`
-		Mtu     string `json:"mtu"`
-		Details struct {
-			Username string `json:"username"`
-			IfName   string `json:"ifname"`
-			WanType  string `json:"wanType"`
-			Service  string `json:"service"`
-			Password string `json:"password"`
-			PeerDns  string `json:"peerdns"`
-		} `json:"details"`
-		GateWay  string `json:"gateWay"`
-		DnsAddr1 string `json:"dnsAddrs1"`
-		Status   int    `json:"status"`
-		Uptime   int    `json:"uptime"`
-		DNSAddr  string `json:"dnsAddrs"`
-		Ipv6Info struct {
-			WanType      string        `json:"wanType"`
-			IfName       string        `json:"ifname"`
-			DNS          []interface{} `json:"dns"`
-			IP6Addr      []string      `json:"ip6addr"`
-			PeerDns      string        `json:"peerdns"`
-			LanIP6Prefix []interface{} `json:"lan_ip6prefix"`
-			LanIP6Addr   []interface{} `json:"lan_ip6addr"`
-		} `json:"ipv6_info"`
-		Ipv6Show int `json:"ipv6_show"`
-		Link     int `json:"link"`
-		Ipv4     []struct {
-			Mask string `json:"mask"`
-			IP   string `json:"ip"`
-		} `json:"ipv4"`
-	} `json:"info"`
+	Info any `json:"info"`
 	Code int `json:"code"`
+}
+
+type Info struct {
+	Mac     string `json:"mac"`
+	Mtu     string `json:"mtu"`
+	Details struct {
+		Username string `json:"username"`
+		IfName   string `json:"ifname"`
+		WanType  string `json:"wanType"`
+		Service  string `json:"service"`
+		Password string `json:"password"`
+		PeerDns  string `json:"peerdns"`
+	} `json:"details"`
+	GateWay  string `json:"gateWay"`
+	DnsAddr1 string `json:"dnsAddrs1"`
+	Status   int    `json:"status"`
+	Uptime   int    `json:"uptime"`
+	DNSAddr  string `json:"dnsAddrs"`
+	Ipv6Info struct {
+		WanType      string        `json:"wanType"`
+		IfName       string        `json:"ifname"`
+		DNS          []interface{} `json:"dns"`
+		IP6Addr      []string      `json:"ip6addr"`
+		PeerDns      string        `json:"peerdns"`
+		LanIP6Prefix []interface{} `json:"lan_ip6prefix"`
+		LanIP6Addr   []interface{} `json:"lan_ip6addr"`
+	} `json:"ipv6_info"`
+	Ipv6Show int `json:"ipv6_show"`
+	Link     int `json:"link"`
+	Ipv4     []struct {
+		Mask string `json:"mask"`
+		IP   string `json:"ip"`
+	} `json:"ipv4"`
 }
 
 type WifiDetailAll struct {
@@ -81,7 +83,7 @@ type WifiDetailAll struct {
 	Code int `json:"code"`
 }
 
-var WanInfoRepo WanInfo
+var WanInfoRepo Info
 var WifiDetailAllRepo WifiDetailAll
 
 func SubNetMaskToLen(netmask string) (int, error) {
@@ -116,7 +118,8 @@ func GetXQnetWorkWanInfo() {
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	count := 0
-	if err = json.Unmarshal(body, &WanInfoRepo); err != nil {
+	wanInfoRepo := WanInfo{}
+	if err = json.Unmarshal(body, &wanInfoRepo); err != nil {
 		log.Println("Token失效，正在重试获取")
 		config.GetConfig()
 		count++
@@ -124,6 +127,33 @@ func GetXQnetWorkWanInfo() {
 		if count >= 5 {
 			log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误", err)
 			os.Exit(1)
+		}
+	} else {
+		switch wanInfoRepo.Info.(type) {
+		case bool:
+			return
+		}
+
+		m, err := json.Marshal(wanInfoRepo.Info)
+		if err != nil {
+			log.Println("Token失效，正在重试获取")
+			config.GetConfig()
+			count++
+			time.Sleep(1 * time.Minute)
+			if count >= 5 {
+				log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误", err)
+				os.Exit(1)
+			}
+		}
+		if err := json.Unmarshal(m, &WanInfoRepo); err != nil {
+			log.Println("Token失效，正在重试获取")
+			config.GetConfig()
+			count++
+			time.Sleep(1 * time.Minute)
+			if count >= 5 {
+				log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误", err)
+				os.Exit(1)
+			}
 		}
 	}
 }

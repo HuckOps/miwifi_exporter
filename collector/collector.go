@@ -111,12 +111,12 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(c.metrics["wan_upload_traffic"], prometheus.GaugeValue, routerUpload, host)
 	ch <- prometheus.MustNewConstMetric(c.metrics["wan_download_traffic"], prometheus.GaugeValue, routerDownload, host)
 
-	for _, ipv4 := range WanInfoRepo.Info.Ipv4 {
+	for _, ipv4 := range WanInfoRepo.Ipv4 {
 		ch <- prometheus.MustNewConstMetric(c.metrics["ipv4"], prometheus.GaugeValue, 1, ipv4.IP)
 		mask, _ := SubNetMaskToLen(ipv4.Mask)
 		ch <- prometheus.MustNewConstMetric(c.metrics["ipv4_mask"], prometheus.GaugeValue, float64(mask), ipv4.IP)
 	}
-	for _, ipv6 := range WanInfoRepo.Info.Ipv6Info.IP6Addr {
+	for _, ipv6 := range WanInfoRepo.Ipv6Info.IP6Addr {
 		ch <- prometheus.MustNewConstMetric(c.metrics["ipv6"], prometheus.GaugeValue, 1, ipv6)
 	}
 
