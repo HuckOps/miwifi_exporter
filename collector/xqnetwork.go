@@ -111,18 +111,22 @@ func GetXQnetWorkWanInfo() {
 		return
 	}
 
-	// WAN 未连接时 info 为 bool，此时没有可用信息。
+	// WAN 未连接时 info 为 bool，此时没有可用信息；清空 WanInfoRepo，
+	// 避免 collector.go 继续导出上一次采集留下的陈旧 ipv4/ipv6 指标。
 	if _, ok := wanInfoRepo.Info.(bool); ok {
+		WanInfoRepo = Info{}
 		return
 	}
 
 	m, err := json.Marshal(wanInfoRepo.Info)
 	if err != nil {
 		log.Println("解析 WAN 信息失败：", err)
+		WanInfoRepo = Info{}
 		return
 	}
 	if err := json.Unmarshal(m, &WanInfoRepo); err != nil {
 		log.Println("解析 WAN 信息失败：", err)
+		WanInfoRepo = Info{}
 	}
 }
 

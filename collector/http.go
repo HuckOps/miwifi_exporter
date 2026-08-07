@@ -28,18 +28,20 @@ func apiURL(path string) string {
 //     GetMiSystemStatus 还会无限递归调用自身。
 //   - 旧代码在 token 失效时 sleep 1 分钟，会让整个 Prometheus scrape 超时。
 //
-// 现在：Unmarshal 失败（通常是 token 失效）→ 调用 config.GetConfig() 重新登录 → 重试 1 次。
-// 仍然失败则返回 error，由调用方记录日志后跳过本次采集，下一次 scrape 自然恢复，
+// 现在：第一次失败（原因可能很多：token 过期、超时、网络不可达、5xx 等）→
+// 调用 config.GetConfig() 重新登录 → 重试 1 次。仍然失败则返回 error，
+// 由调用方记录日志后跳过本次采集，下一次 scrape 自然恢复，
 // 而不是 os.Exit(1) 让整个进程退出。
 func fetchAPI(path string, target interface{}) error {
 	if err := doGet(apiURL(path), target); err == nil {
 		return nil
 	}
 
-	// 第一次失败，很可能是 token 过期，重新登录后再试一次。
+	// 第一次失败，重新登录后再试一次（覆盖 token 过期这一最常见原因；
+	// 其它原因如超时/网络抖动重试一次也有机会自愈）。
 	config.GetConfig()
 	if err := doGet(apiURL(path), target); err != nil {
-		return fmt.Errorf("token 失效或路由器鉴权错误: %w", err)
+		return fmt.Errorf("请求失败（已重试 1 次）: %w", err)
 	}
 	return nil
 }
@@ -52,6 +54,12 @@ func doGet(url string, target interface{}) error {
 		return fmt.Errorf("请求路由器错误（可能路由器掉线或宕机）: %w", err)
 	}
 	defer res.Body.Close()
+
+	// 校验 HTTP 状态码：路由器在 token 失效时通常返回 401，服务端异常返回 5xx。
+	// 若不校验，这些情况会被 ReadAll/Unmarshal 吞掉并误报为“解析响应失败”。
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return fmt.Errorf("路由器返回非 2xx 状态码: %d", res.StatusCode)
+	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
