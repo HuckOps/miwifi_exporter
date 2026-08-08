@@ -19,3 +19,6 @@
 bin/
 
 .DS_Store
+
+# ZCode 工具临时文件
+.zcode/

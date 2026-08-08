@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/helloworlde/miwifi-exporter/config"
@@ -58,6 +59,32 @@ func NewMetrics(namespace string) *Metrics {
 			"device_online_time":      newGlobalMetric(namespace, "device_online_time", "", []string{"ip", "mac", "device_name", "is_ap"}),
 
 			"wifi_detail": newGlobalMetric(namespace, "wifi_detail", "", []string{"ssid", "status", "band_list", "channel"}),
+
+			// 新增：各频段 WiFi 在线终端数与 Mesh 节点数（newstatus）
+			"wifi_sta_count": newGlobalMetric(namespace, "wifi_sta_count", "各频段 WiFi 在线终端数", []string{"host", "band"}),
+			"mesh_cap_count": newGlobalMetric(namespace, "mesh_cap_count", "Mesh 主节点数", []string{"host"}),
+			"mesh_re_count":  newGlobalMetric(namespace, "mesh_re_count", "Mesh 子节点数", []string{"host"}),
+
+			// 新增：WAN 链路状态（pppoe_status）
+			"wan_link_status":       newGlobalMetric(namespace, "wan_link_status", "WAN 链路状态码（2=已连接）", []string{"host"}),
+			"wan_negotiation_speed": newGlobalMetric(namespace, "wan_negotiation_speed", "WAN 协商速率（Mbps）", []string{"host"}),
+			"wan_info":              newGlobalMetric(namespace, "wan_info", "WAN 信息", []string{"host", "wan_ip", "gateway", "dns"}),
+
+			// 新增：各 LAN 口链路状态（lan_info）
+			"lan_port_link": newGlobalMetric(namespace, "lan_port_link", "LAN 口链路状态（0=断开，1=连接）", []string{"host", "port"}),
+			"lan_uptime":    newGlobalMetric(namespace, "lan_uptime", "LAN uptime（秒）", []string{"host"}),
+
+			// 新增：每台 WiFi 终端的信号强度（wifi_connect_devices）
+			"wifi_device_signal": newGlobalMetric(namespace, "wifi_device_signal", "WiFi 终端信号强度（0-100）", []string{"mac", "band"}),
+
+			// 新增：周围 WiFi 信道环境（wifi_list）
+			"neighbor_wifi_rssi":  newGlobalMetric(namespace, "neighbor_wifi_rssi", "周围 WiFi 信号强度（dBm）", []string{"ssid", "bssid", "band", "channel"}),
+			"neighbor_wifi_count": newGlobalMetric(namespace, "neighbor_wifi_count", "周围 WiFi 总数", []string{"host"}),
+
+			// 新增：设备更丰富的维度（device_list）
+			"device_wifi_quality":    newGlobalMetric(namespace, "device_wifi_quality", "设备 WiFi 信号等级（1-4）", []string{"ip", "mac", "device_name"}),
+			"device_connection_type": newGlobalMetric(namespace, "device_connection_type", "设备连接类型", []string{"ip", "mac", "device_name", "type"}),
+			"device_pcontrol":        newGlobalMetric(namespace, "device_pcontrol", "设备是否启用家长控制（0/1）", []string{"ip", "mac", "device_name"}),
 		},
 	}
 }
@@ -76,6 +103,12 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 	GetMiSystemDeviceList()
 	GetXQnetWorkWanInfo()
 	GetXQnetWorkWifiDetailAll()
+	GetMiSystemNewStatus()
+	GetMiSystemDeviceListV2()
+	GetXQnetWorkPppoeStatus()
+	GetXQnetWorkLanInfo()
+	GetXQnetWorkWifiConnectDevices()
+	GetXQnetWorkWifiList()
 	host := config.GetHost()
 
 	routerCPUHz := StatusRepo.GetRouterCPUMhz()
@@ -190,6 +223,52 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 		}
 		channel := fmt.Sprintf("%v", info.ChannelInfo.Channel)
 		ch <- prometheus.MustNewConstMetric(c.metrics["wifi_detail"], prometheus.GaugeValue, status, info.Ssid, info.Status, bandList, channel)
+	}
+
+	// 各频段 WiFi 在线终端数 + Mesh 节点数（newstatus）
+	ch <- prometheus.MustNewConstMetric(c.metrics["wifi_sta_count"], prometheus.GaugeValue, float64(NewStatusRepo.G2.OnlineStaCount), host, "2.4GHz")
+	ch <- prometheus.MustNewConstMetric(c.metrics["wifi_sta_count"], prometheus.GaugeValue, float64(NewStatusRepo.G5.OnlineStaCount), host, "5GHz")
+	ch <- prometheus.MustNewConstMetric(c.metrics["wifi_sta_count"], prometheus.GaugeValue, float64(NewStatusRepo.G5H.OnlineStaCount), host, "5GHz-high")
+	ch <- prometheus.MustNewConstMetric(c.metrics["mesh_cap_count"], prometheus.GaugeValue, float64(NewStatusRepo.CapCount), host)
+	ch <- prometheus.MustNewConstMetric(c.metrics["mesh_re_count"], prometheus.GaugeValue, float64(NewStatusRepo.ReCount), host)
+
+	// WAN 链路状态（pppoe_status）
+	ch <- prometheus.MustNewConstMetric(c.metrics["wan_link_status"], prometheus.GaugeValue, float64(PppoeStatusRepo.Status), host)
+	if wanSpeed, err := strconv.ParseFloat(PppoeStatusRepo.WanSpeed, 64); err == nil {
+		ch <- prometheus.MustNewConstMetric(c.metrics["wan_negotiation_speed"], prometheus.GaugeValue, wanSpeed, host)
+	}
+	dns := strings.Join(PppoeStatusRepo.DNS, ",")
+	ch <- prometheus.MustNewConstMetric(c.metrics["wan_info"], prometheus.GaugeValue, 1, host, PppoeStatusRepo.IP.Address, PppoeStatusRepo.GW, dns)
+
+	// 各 LAN 口链路状态（lan_info）
+	for i, link := range LanInfoRepo.LinkList {
+		ch <- prometheus.MustNewConstMetric(c.metrics["lan_port_link"], prometheus.GaugeValue, float64(link), host, strconv.Itoa(i))
+	}
+	ch <- prometheus.MustNewConstMetric(c.metrics["lan_uptime"], prometheus.GaugeValue, float64(LanInfoRepo.Info.Uptime), host)
+
+	// 每台 WiFi 终端的信号强度（wifi_connect_devices）
+	for _, d := range WifiConnectDevicesRepo.List {
+		band := wifiIndexToBand(d.WifiIndex)
+		ch <- prometheus.MustNewConstMetric(c.metrics["wifi_device_signal"], prometheus.GaugeValue, float64(d.Signal), d.Mac, band)
+	}
+
+	// 周围 WiFi 信道环境（wifi_list）
+	for _, w := range WifiListRepo.List {
+		ch <- prometheus.MustNewConstMetric(c.metrics["neighbor_wifi_rssi"], prometheus.GaugeValue, float64(w.RSSI), w.SSID, w.BSSID, w.Band, strconv.Itoa(w.Channel))
+	}
+	ch <- prometheus.MustNewConstMetric(c.metrics["neighbor_wifi_count"], prometheus.GaugeValue, float64(len(WifiListRepo.List)), host)
+
+	// 设备更丰富的维度（device_list）
+	for _, dev := range DeviceListV2Repo.Devices {
+		devIP := dev.IP
+		devMac := dev.Mac
+		devName := dev.Name
+		if devName == "" {
+			devName = dev.OName
+		}
+		ch <- prometheus.MustNewConstMetric(c.metrics["device_wifi_quality"], prometheus.GaugeValue, float64(dev.WifiQuality), devIP, devMac, devName)
+		ch <- prometheus.MustNewConstMetric(c.metrics["device_connection_type"], prometheus.GaugeValue, 1, devIP, devMac, devName, strconv.Itoa(dev.ConnectionType))
+		ch <- prometheus.MustNewConstMetric(c.metrics["device_pcontrol"], prometheus.GaugeValue, float64(dev.PControl.Enabled), devIP, devMac, devName)
 	}
 }
 

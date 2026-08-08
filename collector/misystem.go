@@ -1,17 +1,9 @@
 package collector
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
-	"os"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/helloworlde/miwifi-exporter/config"
 )
 
 type Status struct {
@@ -104,49 +96,14 @@ var StatusRepo Status
 var DeviceListRepo DeviceList
 
 func GetMiSystemDeviceList() {
-	client := http.Client{}
-	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/misystem/devicelist",
-		config.Configs.IP, config.Token.Token))
-	if err != nil {
-		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机", err)
-		os.Exit(1)
+	if err := fetchAPI("api/misystem/devicelist", &DeviceListRepo); err != nil {
+		log.Println("获取设备列表失败：", err)
 	}
-	body, err := ioutil.ReadAll(res.Body)
-	count := 0
-	if err = json.Unmarshal(body, &DeviceListRepo); err != nil {
-		log.Println("Token失效，正在重试获取")
-		count++
-		time.Sleep(1 * time.Minute)
-		if count >= 5 {
-			log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误", err)
-			os.Exit(1)
-		}
-	}
-
 }
 
 func GetMiSystemStatus() {
-	client := http.Client{}
-	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/misystem/status",
-		config.Configs.IP, config.Token.Token))
-
-	if err != nil {
-		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机", err)
-		os.Exit(1)
-	}
-
-	body, err := ioutil.ReadAll(res.Body)
-	count := 0
-	if err = json.Unmarshal(body, &StatusRepo); err != nil {
-		log.Println("Token失效，正在重试获取", err)
-		config.GetConfig()
-		GetMiSystemStatus()
-		count++
-		time.Sleep(1 * time.Minute)
-		if count >= 5 {
-			log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误", err)
-			os.Exit(1)
-		}
+	if err := fetchAPI("api/misystem/status", &StatusRepo); err != nil {
+		log.Println("获取路由器状态失败：", err)
 	}
 }
 
@@ -239,4 +196,59 @@ func (r *Status) GetRouterDownload() float64 {
 	}
 
 	return n
+}
+
+// NewStatus 对应 /api/misystem/newstatus，提供各频段 WiFi 在线终端数与 Mesh 节点数。
+// 注意：该接口会返回各频段密码（passwd），监控场景下不采集该字段。
+type NewStatus struct {
+	BSD      string `json:"bsd"`
+	Code     int    `json:"code"`
+	Count    int    `json:"count"`
+	CapCount int    `json:"cap_count"` // Mesh 主节点数
+	ReCount  int    `json:"re_count"`  // Mesh 子节点数
+	G2       struct {
+		OnlineStaCount int `json:"online_sta_count"`
+	} `json:"2g"`
+	G5 struct {
+		OnlineStaCount int `json:"online_sta_count"`
+	} `json:"5g"`
+	G5H struct {
+		OnlineStaCount int `json:"online_sta_count"`
+	} `json:"5gh"`
+}
+
+// DeviceListV2 对应 /api/misystem/device_list，比 devicelist 提供更丰富的设备维度：
+// wifi_quality（信号等级）、connectionType（连接类型）、pcontrol（家长控制）。
+// 注意：该接口的 ip 字段是字符串（如 "192.168.31.172"），与 devicelist 接口的数组形式不同。
+type DeviceListV2 struct {
+	WanRX   int `json:"wanRX"`
+	Devices []struct {
+		Mac            string `json:"mac"`
+		Name           string `json:"name"`
+		OName          string `json:"oname"`
+		IsAP           int    `json:"isap"`
+		ConnectionType int    `json:"connectionType"`
+		WifiQuality    int    `json:"wifi_quality"`
+		IP             string `json:"ip"`
+		PControl       struct {
+			Enabled int `json:"enabled"`
+			Total   int `json:"total"`
+		} `json:"pcontrol"`
+	} `json:"devices"`
+	Code int `json:"code"`
+}
+
+var NewStatusRepo NewStatus
+var DeviceListV2Repo DeviceListV2
+
+func GetMiSystemNewStatus() {
+	if err := fetchAPI("api/misystem/newstatus", &NewStatusRepo); err != nil {
+		log.Println("获取 WiFi 频段状态失败：", err)
+	}
+}
+
+func GetMiSystemDeviceListV2() {
+	if err := fetchAPI("api/misystem/device_list", &DeviceListV2Repo); err != nil {
+		log.Println("获取设备详情列表失败：", err)
+	}
 }

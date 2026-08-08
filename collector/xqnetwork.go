@@ -3,16 +3,10 @@ package collector
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
-	"net/http"
-	"os"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/helloworlde/miwifi-exporter/config"
 )
 
 type WanInfo struct {
@@ -109,73 +103,134 @@ func SubNetMaskToLen(netmask string) (int, error) {
 }
 
 func GetXQnetWorkWanInfo() {
-	client := http.Client{}
-	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/xqnetwork/wan_info",
-		config.Configs.IP, config.Token.Token))
-	if err != nil {
-		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机", err)
-		os.Exit(1)
-	}
-	body, err := ioutil.ReadAll(res.Body)
-	count := 0
+	// wan_info 的 info 字段在 WAN 未连接时是 bool（false），连接时是对象，
+	// 因此先用 WanInfo（info 为 any）解析，再做二次解析到 WanInfoRepo。
 	wanInfoRepo := WanInfo{}
-	if err = json.Unmarshal(body, &wanInfoRepo); err != nil {
-		log.Println("Token失效，正在重试获取")
-		config.GetConfig()
-		count++
-		time.Sleep(1 * time.Minute)
-		if count >= 5 {
-			log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误", err)
-			os.Exit(1)
-		}
-	} else {
-		switch wanInfoRepo.Info.(type) {
-		case bool:
-			return
-		}
+	if err := fetchAPI("api/xqnetwork/wan_info", &wanInfoRepo); err != nil {
+		log.Println("获取 WAN 信息失败：", err)
+		return
+	}
 
-		m, err := json.Marshal(wanInfoRepo.Info)
-		if err != nil {
-			log.Println("Token失效，正在重试获取")
-			config.GetConfig()
-			count++
-			time.Sleep(1 * time.Minute)
-			if count >= 5 {
-				log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误", err)
-				os.Exit(1)
-			}
-		}
-		if err := json.Unmarshal(m, &WanInfoRepo); err != nil {
-			log.Println("Token失效，正在重试获取")
-			config.GetConfig()
-			count++
-			time.Sleep(1 * time.Minute)
-			if count >= 5 {
-				log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误", err)
-				os.Exit(1)
-			}
-		}
+	// WAN 未连接时 info 为 bool，此时没有可用信息；清空 WanInfoRepo，
+	// 避免 collector.go 继续导出上一次采集留下的陈旧 ipv4/ipv6 指标。
+	if _, ok := wanInfoRepo.Info.(bool); ok {
+		WanInfoRepo = Info{}
+		return
+	}
+
+	m, err := json.Marshal(wanInfoRepo.Info)
+	if err != nil {
+		log.Println("解析 WAN 信息失败：", err)
+		WanInfoRepo = Info{}
+		return
+	}
+	if err := json.Unmarshal(m, &WanInfoRepo); err != nil {
+		log.Println("解析 WAN 信息失败：", err)
+		WanInfoRepo = Info{}
 	}
 }
 
 func GetXQnetWorkWifiDetailAll() {
-	client := http.Client{}
-	res, err := client.Get(fmt.Sprintf("http://%s/cgi-bin/luci/;stok=%s/api/xqnetwork/wifi_detail_all",
-		config.Configs.IP, config.Token.Token))
-	if err != nil {
-		log.Println("请求路由器错误，可能原因：1.路由器掉线或者宕机", err)
-		os.Exit(1)
+	if err := fetchAPI("api/xqnetwork/wifi_detail_all", &WifiDetailAllRepo); err != nil {
+		log.Println("获取 WiFi 详情失败：", err)
 	}
-	body, err := ioutil.ReadAll(res.Body)
-	count := 0
-	if err = json.Unmarshal(body, &WifiDetailAllRepo); err != nil {
-		log.Println("Token失效，正在重试获取")
-		config.GetConfig()
-		count++
-		time.Sleep(1 * time.Minute)
-		if count >= 5 {
-			log.Println("获取状态错误，可能原因：1.账号或者密码错误，2.路由器鉴权错误", err)
-			os.Exit(1)
-		}
+}
+
+// PppoeStatus 对应 /api/xqnetwork/pppoe_status，提供 WAN 链路状态、协商速率、网关与 DNS。
+type PppoeStatus struct {
+	Code     int      `json:"code"`
+	Status   int      `json:"status"`   // 2 = 已连接
+	WanSpeed string   `json:"wanSpeed"` // WAN 协商速率（Mbps）
+	GW       string   `json:"gw"`       // 网关
+	Proto    string   `json:"proto"`    // 接入协议：dhcp / pppoe 等
+	DNS      []string `json:"dns"`
+	IP       struct {
+		Mask    string `json:"mask"`
+		Address string `json:"address"`
+	} `json:"ip"`
+}
+
+// LanInfo 对应 /api/xqnetwork/lan_info，提供各 LAN 口链路状态与 LAN uptime。
+type LanInfo struct {
+	Code int `json:"code"`
+	Info struct {
+		Status int    `json:"status"`
+		Mac    string `json:"mac"`
+		Uptime int    `json:"uptime"`
+		Ipv4   []struct {
+			Mask string `json:"mask"`
+			IP   string `json:"ip"`
+		} `json:"ipv4"`
+	} `json:"info"`
+	LinkList []int `json:"linkList"` // 每个 LAN 口的链路状态（0/1），索引即端口号
+}
+
+// WifiConnectDevices 对应 /api/xqnetwork/wifi_connect_devices，
+// 提供每台 WiFi 终端的信号强度（signal，0-100）与其所在频段（wifiIndex）。
+type WifiConnectDevices struct {
+	Code int `json:"code"`
+	List []struct {
+		Mac       string `json:"mac"`
+		Signal    int    `json:"signal"`
+		WifiIndex int    `json:"wifiIndex"` // 1=2.4G, 2=5G, 3=5Gh
+	} `json:"list"`
+}
+
+// WifiList 对应 /api/xqnetwork/wifi_list，提供周围 WiFi 的扫描结果，
+// 用于信道占用与干扰分析。
+type WifiList struct {
+	Code int `json:"code"`
+	List []struct {
+		Band       string `json:"band"`
+		SSID       string `json:"ssid"`
+		BSSID      string `json:"bssid"`
+		RSSI       int    `json:"rssi"` // 信号强度（dBm，负值，越接近 0 越强）
+		Channel    int    `json:"channel"`
+		Signal     int    `json:"signal"`
+		Quality    int    `json:"quality"`
+		Encryption string `json:"encryption"`
+	} `json:"list"`
+}
+
+var PppoeStatusRepo PppoeStatus
+var LanInfoRepo LanInfo
+var WifiConnectDevicesRepo WifiConnectDevices
+var WifiListRepo WifiList
+
+func GetXQnetWorkPppoeStatus() {
+	if err := fetchAPI("api/xqnetwork/pppoe_status", &PppoeStatusRepo); err != nil {
+		log.Println("获取 PPPoE/WAN 状态失败：", err)
+	}
+}
+
+func GetXQnetWorkLanInfo() {
+	if err := fetchAPI("api/xqnetwork/lan_info", &LanInfoRepo); err != nil {
+		log.Println("获取 LAN 信息失败：", err)
+	}
+}
+
+func GetXQnetWorkWifiConnectDevices() {
+	if err := fetchAPI("api/xqnetwork/wifi_connect_devices", &WifiConnectDevicesRepo); err != nil {
+		log.Println("获取 WiFi 终端信号失败：", err)
+	}
+}
+
+func GetXQnetWorkWifiList() {
+	if err := fetchAPI("api/xqnetwork/wifi_list", &WifiListRepo); err != nil {
+		log.Println("获取周围 WiFi 列表失败：", err)
+	}
+}
+
+// wifiIndexToBand 将路由器返回的 wifiIndex 映射为可读频段名。
+func wifiIndexToBand(idx int) string {
+	switch idx {
+	case 1:
+		return "2.4GHz"
+	case 2:
+		return "5GHz"
+	case 3:
+		return "5GHz-high"
+	default:
+		return "unknown"
 	}
 }
